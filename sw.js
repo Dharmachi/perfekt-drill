@@ -1,4 +1,4 @@
-const CACHE = "perfekt-drill-v4";
+const CACHE = "perfekt-drill-v5";
 const ASSETS = ["./", "./index.html", "./app.js", "./verbs.js", "./examples.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
