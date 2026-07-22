@@ -6,7 +6,8 @@ const MODES = [
   { id: "participle", title: "2. 過去分詞", desc: "選擇或填寫 Partizip II。" },
   { id: "present", title: "3. 現在時", desc: "選第三人稱現在時形式。" },
   { id: "triple", title: "4. 混合完成時", desc: "同時答助動詞 + 分詞。" },
-  { id: "review", title: "5. 弱項複習", desc: "只抽你錯過的詞。" },
+  { id: "sentence", title: "5. 例句填空", desc: "看德文例句與中文，補上 hat/ist + 分詞。" },
+  { id: "review", title: "6. 弱項複習", desc: "只抽你錯過的詞。" },
 ];
 
 function loadWeak() {
@@ -55,6 +56,20 @@ function byId(id) {
   return window.VERBS.find((v) => v.id === id);
 }
 
+function getExample(id) {
+  return (window.EXAMPLES && window.EXAMPLES[id]) || null;
+}
+
+function perfectPhrase(verb) {
+  return `${verb.aux} ${verb.participle}`;
+}
+
+function fullSentence(verb, ex) {
+  if (!ex) return perfectPhrase(verb);
+  const after = ex.after == null ? "." : ex.after;
+  return `${ex.before} ${verb.aux} ${ex.mid} ${verb.participle}${after}`;
+}
+
 function distractors(verb, field, seed, n = 3) {
   const pool = window.VERBS.filter((v) => v.id !== verb.id && v[field] !== verb[field]).map(
     (v) => v[field],
@@ -62,11 +77,23 @@ function distractors(verb, field, seed, n = 3) {
   return shuffle(pool, seed).slice(0, n);
 }
 
+function phraseDistractors(verb, seed, n = 3) {
+  const correct = perfectPhrase(verb);
+  const pool = window.VERBS.filter((v) => v.id !== verb.id)
+    .map((v) => perfectPhrase(v))
+    .filter((p) => p !== correct);
+  return shuffle([...new Set(pool)], seed).slice(0, n);
+}
+
 function buildQueue(mode, weakIds, seed) {
-  const all = window.VERBS.map((v) => v.id);
+  let all = window.VERBS.map((v) => v.id);
+  if (mode === "sentence") {
+    all = all.filter((id) => !!getExample(id));
+  }
   if (mode === "review") {
-    const base = weakIds.length ? weakIds : all;
-    return shuffle(base, seed).slice(0, Math.min(BATCH, base.length));
+    const base = weakIds.length ? weakIds.filter((id) => all.includes(id) || byId(id)) : all;
+    const reviewBase = weakIds.length ? weakIds : all;
+    return shuffle(reviewBase, seed).slice(0, Math.min(BATCH, reviewBase.length));
   }
   const weakSet = new Set(weakIds);
   const weak = shuffle(
@@ -107,14 +134,17 @@ function start(mode) {
   const items = queue.map((id, i) => {
     const verb = byId(id);
     const itemSeed = seed + i * 97;
+    const phrase = perfectPhrase(verb);
     return {
       id,
       verb,
+      example: getExample(id),
       presentOpts: shuffle([verb.present, ...distractors(verb, "present", itemSeed, 3)], itemSeed + 1),
       partOpts: shuffle(
         [verb.participle, ...distractors(verb, "participle", itemSeed + 3, 3)],
         itemSeed + 5,
       ),
+      phraseOpts: shuffle([phrase, ...phraseDistractors(verb, itemSeed + 9, 3)], itemSeed + 11),
     };
   });
   state = {
@@ -143,7 +173,9 @@ function isFilled(item) {
   if (mode === "participle") {
     return state.difficulty === "easy" ? !!a.pick : normalize(a.fill).length > 0;
   }
-  // triple / review
+  if (mode === "sentence") {
+    return state.difficulty === "easy" ? !!a.pick : normalize(a.fill).length > 0;
+  }
   const partOk = state.difficulty === "easy" ? !!a.pick : normalize(a.fill).length > 0;
   return !!a.aux && partOk;
 }
@@ -170,6 +202,12 @@ function gradeOne(item) {
         ? a.pick === v.participle
         : normalize(a.fill) === normalize(v.participle);
     expected = v.participle;
+  } else if (state.mode === "sentence") {
+    expected = perfectPhrase(v);
+    ok =
+      state.difficulty === "easy"
+        ? a.pick === expected
+        : normalize(a.fill) === normalize(expected);
   } else {
     const auxOk = a.aux === v.aux;
     const partOk =
@@ -177,7 +215,7 @@ function gradeOne(item) {
         ? a.pick === v.participle
         : normalize(a.fill) === normalize(v.participle);
     ok = auxOk && partOk;
-    expected = `${v.aux} ${v.participle}`;
+    expected = perfectPhrase(v);
   }
 
   return { ok, expected, verb: v };
@@ -212,15 +250,38 @@ function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
+function renderSentenceFrame(item, shownAux, shownPart) {
+  const ex = item.example;
+  if (!ex) return "";
+  const after = ex.after == null ? "." : ex.after;
+  const auxSlot = shownAux
+    ? `<span class="slot filled">${esc(shownAux)}</span>`
+    : `<span class="slot">____</span>`;
+  const partSlot = shownPart
+    ? `<span class="slot filled">${esc(shownPart)}</span>`
+    : `<span class="slot">____</span>`;
+  return `
+    <div class="sent-zh">${esc(ex.zh)}</div>
+    <div class="sent-de">
+      <span>${esc(ex.before)}</span>
+      ${auxSlot}
+      <span>${esc(ex.mid)}</span>
+      ${partSlot}<span>${esc(after)}</span>
+    </div>
+    <div class="sent-hint">提示動詞：<strong>${esc(item.verb.infinitive)}</strong>（${esc(item.verb.zh || "")}）</div>
+  `;
+}
+
 function renderMenu() {
   const sein = window.VERBS.filter((v) => v.aux === "ist").length;
+  const exampleCount = Object.keys(window.EXAMPLES || {}).length;
   return `
     <h1>Perfekt 動詞速背</h1>
     <p class="sub">每卷 10 題，全部做完再一次提交驗證。錯題會存進弱項池。</p>
     <div class="stats">
       <div class="stat"><b>${window.VERBS.length}</b><span>詞彙總數</span></div>
+      <div class="stat"><b>${exampleCount}</b><span>例句</span></div>
       <div class="stat"><b>${state.weakIds.length}</b><span>弱項</span></div>
-      <div class="stat"><b>${sein}</b><span>用 ist</span></div>
     </div>
     <div class="seg">
       <button type="button" class="${state.difficulty === "easy" ? "on" : ""}" data-diff="easy">簡單·選擇</button>
@@ -236,7 +297,7 @@ function renderMenu() {
       ).join("")}
     </div>
     <div class="hint">
-      建議順序：hat/ist → 分詞 → 混合 → 弱項。可分離動詞：現在時前綴分開，完成時貼回分詞。
+      建議順序：hat/ist → 分詞 → 混合 → 例句填空 → 弱項。例句題會同時練語序：助動詞在中間、分詞在句尾。
       <div class="install">手機：Safari / Chrome 開此頁 →「加入主畫面」，之後像 App 一樣點開。</div>
     </div>
   `;
@@ -249,34 +310,29 @@ function questionBlock(item, idx, locked, detail) {
   const cls = locked ? (detail.ok ? "ok" : "bad") : "";
 
   let body = "";
+  let headInf = v.infinitive;
+  let headZh = v.zh || "";
 
-  if (mode === "aux" || mode === "triple" || mode === "review") {
-    body += `
-      <div class="label">完成時助動詞</div>
-      <div class="choices">
-        <button type="button" class="aux-btn ${a.aux === "hat" ? "on" : ""}" data-ans="${v.id}" data-k="aux" data-v="hat" ${locked ? "disabled" : ""}>hat</button>
-        <button type="button" class="aux-btn ${a.aux === "ist" ? "on" : ""}" data-ans="${v.id}" data-k="aux" data-v="ist" ${locked ? "disabled" : ""}>ist</button>
-      </div>`;
-  }
-
-  if (mode === "present") {
-    body += `
-      <div class="label">第三人稱現在時</div>
-      <div class="choices">
-        ${item.presentOpts
-          .map(
-            (opt) => `
-          <button type="button" class="choice ${a.pick === opt ? "on" : ""}" data-ans="${v.id}" data-k="pick" data-v="${esc(opt)}" ${locked ? "disabled" : ""}>${esc(opt)}</button>`,
-          )
-          .join("")}
-      </div>`;
-  }
-
-  if (mode === "participle" || mode === "triple" || mode === "review") {
-    body += `<div class="label">過去分詞 Partizip II</div>`;
+  if (mode === "sentence") {
+    let shownAux = "";
+    let shownPart = "";
+    if (locked) {
+      shownAux = v.aux;
+      shownPart = v.participle;
+    } else if (state.difficulty === "easy" && a.pick) {
+      const parts = a.pick.split(" ");
+      shownAux = parts[0] || "";
+      shownPart = parts.slice(1).join(" ");
+    } else if (state.difficulty === "hard" && a.fill) {
+      const parts = a.fill.trim().split(/\s+/);
+      shownAux = parts[0] || "";
+      shownPart = parts.slice(1).join(" ");
+    }
+    body += renderSentenceFrame(item, shownAux, shownPart);
+    body += `<div class="label">選擇或填寫完整完成時（助動詞 + 分詞）</div>`;
     if (state.difficulty === "easy") {
       body += `<div class="choices">
-        ${item.partOpts
+        ${item.phraseOpts
           .map(
             (opt) => `
           <button type="button" class="choice ${a.pick === opt ? "on" : ""}" data-ans="${v.id}" data-k="pick" data-v="${esc(opt)}" ${locked ? "disabled" : ""}>${esc(opt)}</button>`,
@@ -284,16 +340,58 @@ function questionBlock(item, idx, locked, detail) {
           .join("")}
       </div>`;
     } else {
-      body += `<input type="text" data-fill="${v.id}" placeholder="例如：gegangen" value="${esc(a.fill || "")}" ${locked ? "disabled" : ""} />`;
+      body += `<input type="text" data-fill="${v.id}" placeholder="例如：ist abgefahren" value="${esc(a.fill || "")}" ${locked ? "disabled" : ""} />`;
+    }
+    headInf = "例句題";
+    headZh = item.example ? item.example.zh : v.zh || "";
+  } else {
+    if (mode === "aux" || mode === "triple" || mode === "review") {
+      body += `
+        <div class="label">完成時助動詞</div>
+        <div class="choices">
+          <button type="button" class="aux-btn ${a.aux === "hat" ? "on" : ""}" data-ans="${v.id}" data-k="aux" data-v="hat" ${locked ? "disabled" : ""}>hat</button>
+          <button type="button" class="aux-btn ${a.aux === "ist" ? "on" : ""}" data-ans="${v.id}" data-k="aux" data-v="ist" ${locked ? "disabled" : ""}>ist</button>
+        </div>`;
+    }
+
+    if (mode === "present") {
+      body += `
+        <div class="label">第三人稱現在時</div>
+        <div class="choices">
+          ${item.presentOpts
+            .map(
+              (opt) => `
+            <button type="button" class="choice ${a.pick === opt ? "on" : ""}" data-ans="${v.id}" data-k="pick" data-v="${esc(opt)}" ${locked ? "disabled" : ""}>${esc(opt)}</button>`,
+            )
+            .join("")}
+        </div>`;
+    }
+
+    if (mode === "participle" || mode === "triple" || mode === "review") {
+      body += `<div class="label">過去分詞 Partizip II</div>`;
+      if (state.difficulty === "easy") {
+        body += `<div class="choices">
+          ${item.partOpts
+            .map(
+              (opt) => `
+            <button type="button" class="choice ${a.pick === opt ? "on" : ""}" data-ans="${v.id}" data-k="pick" data-v="${esc(opt)}" ${locked ? "disabled" : ""}>${esc(opt)}</button>`,
+            )
+            .join("")}
+        </div>`;
+      } else {
+        body += `<input type="text" data-fill="${v.id}" placeholder="例如：gegangen" value="${esc(a.fill || "")}" ${locked ? "disabled" : ""} />`;
+      }
     }
   }
 
   if (locked) {
+    const sentence = mode === "sentence" ? fullSentence(v, item.example) : "";
     body += `
       <div class="answer-key">
         <span class="mark ${detail.ok ? "ok" : "bad"}">${detail.ok ? "正確" : "錯誤"}</span>
         · ${esc(v.zh || "")}<br />
         ${esc(v.infinitive)} — ${esc(v.present)} — ${esc(v.aux)} ${esc(v.participle)}
+        ${sentence ? `<br />完整句：${esc(sentence)}` : ""}
       </div>`;
   }
 
@@ -301,8 +399,8 @@ function questionBlock(item, idx, locked, detail) {
     <div class="q ${cls}" id="q-${v.id}">
       <div class="q-head">
         <div>
-          <div class="q-inf">${esc(v.infinitive)}</div>
-          <div class="q-zh">${esc(v.zh || "")}</div>
+          <div class="q-inf">${esc(mode === "sentence" ? v.infinitive : headInf)}</div>
+          <div class="q-zh">${esc(mode === "sentence" ? v.zh || "" : headZh)}</div>
         </div>
         <div class="q-num">第 ${idx + 1} / ${BATCH} 題</div>
       </div>
@@ -392,22 +490,22 @@ document.getElementById("app").addEventListener("click", (e) => {
 
 document.getElementById("app").addEventListener("input", (e) => {
   const el = e.target;
-    if (el.matches("input[data-fill]")) {
-      state.answers[el.dataset.fill] = {
-        ...state.answers[el.dataset.fill],
-        fill: el.value,
-      };
-      const filled = filledCount();
-      const btn = document.querySelector("[data-submit]");
-      if (btn) {
-        btn.disabled = filled < state.items.length;
-        btn.textContent = `提交驗證（${filled}/${state.items.length}）`;
-      }
-      const chip = [...document.querySelectorAll(".chip")].find((c) =>
-        c.textContent.startsWith("已填"),
-      );
-      if (chip) chip.textContent = `已填 ${filled}/${state.items.length}`;
+  if (el.matches("input[data-fill]")) {
+    state.answers[el.dataset.fill] = {
+      ...state.answers[el.dataset.fill],
+      fill: el.value,
+    };
+    const filled = filledCount();
+    const btn = document.querySelector("[data-submit]");
+    if (btn) {
+      btn.disabled = filled < state.items.length;
+      btn.textContent = `提交驗證（${filled}/${state.items.length}）`;
     }
+    const chip = [...document.querySelectorAll(".chip")].find((c) =>
+      c.textContent.startsWith("已填"),
+    );
+    if (chip) chip.textContent = `已填 ${filled}/${state.items.length}`;
+  }
 });
 
 if ("serviceWorker" in navigator) {

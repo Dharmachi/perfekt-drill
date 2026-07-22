@@ -172,6 +172,40 @@
       font-weight: 500;
       line-height: 1.35;
     }
+    .sent-zh {
+      font-size: 1.1rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+      line-height: 1.45;
+    }
+    .sent-de {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+    .slot {
+      display: inline-block;
+      min-width: 4.5em;
+      padding: 4px 8px;
+      border-bottom: 2px solid var(--accent);
+      text-align: center;
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .slot.filled {
+      border-bottom-color: var(--ink);
+      color: var(--ink);
+    }
+    .sent-hint {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
     .label {
       font-size: 0.95rem;
       color: var(--muted);
@@ -287,6 +321,7 @@
 <body>
   <div class="app" id="app"></div>
   <script src="verbs.js"></script>
+  <script src="examples.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

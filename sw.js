@@ -1,5 +1,5 @@
-const CACHE = "perfekt-drill-v3";
-const ASSETS = ["./", "./index.html", "./app.js", "./verbs.js", "./manifest.webmanifest", "./icon.svg"];
+const CACHE = "perfekt-drill-v4";
+const ASSETS = ["./", "./index.html", "./app.js", "./verbs.js", "./examples.js", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
