@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>修復 Perfekt</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 28rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    button { font-size: 1.1rem; padding: 0.9rem 1.2rem; width: 100%; margin-top: 1rem; }
+    .ok { color: #0f6e6a; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>修復打不開的問題</h1>
+  <p>點下面按鈕，清掉壞掉的手機／瀏覽器緩存，然後自動回練習頁。</p>
+  <button id="go">一鍵修復並打開</button>
+  <p id="msg"></p>
+  <script>
+    async function fix() {
+      const msg = document.getElementById("msg");
+      msg.textContent = "清理中…";
+      try {
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+        msg.innerHTML = '<span class="ok">已清理完成，正在打開…</span>';
+      } catch (e) {
+        msg.textContent = "清理時出錯，仍會嘗試打開：" + e.message;
+      }
+      setTimeout(() => {
+        location.replace("./index.html?recovered=1&t=" + Date.now());
+      }, 400);
+    }
+    document.getElementById("go").onclick = fix;
+    // 也可自動執行
+    fix();
+  </script>
+</body>
+</html>

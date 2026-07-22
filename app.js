@@ -450,7 +450,7 @@ function renderMenu() {
 
   return `
     <h1>Perfekt 動詞速背</h1>
-    <p class="sub">先用背誦進度刷完詞表，再用智能混合加強不熟的詞。<span style="opacity:.7">（版本 v8）</span></p>
+    <p class="sub">先用背誦進度刷完詞表，再用智能混合加強不熟的詞。<span style="opacity:.7">（版本 v9）</span></p>
     <div class="stats">
       <div class="stat"><b>${stats.unseen}</b><span>未熟悉</span></div>
       <div class="stat"><b>${stats.learning}</b><span>練習中</span></div>
@@ -720,9 +720,21 @@ document.getElementById("app").addEventListener("input", (e) => {
   }
 });
 
-if ("serviceWorker" in navigator) {
-  // 只注册，不自动反复刷新（避免手机白屏死循环）
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
-}
+// 暫時停用 Service Worker：先前錯誤更新會導致白屏／打不開。
+// 進入頁面時主動卸載舊 SW 並清快取。
+(async function purgeBrokenWorker() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch {
+    /* ignore */
+  }
+})();
 
 render();
