@@ -1,4 +1,4 @@
-const CACHE = "perfekt-drill-v6";
+const CACHE = "perfekt-drill-v7";
 const ASSETS = [
   "./",
   "./index.html",

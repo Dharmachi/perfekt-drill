@@ -18,9 +18,11 @@ const SAMPLING = [
 ];
 
 function loadProgress() {
+  const empty = { familiarity: {}, studyIndex: 0, cycles: 0, updatedAt: 0 };
   try {
     const raw = JSON.parse(localStorage.getItem(PROGRESS_KEY) || "{}");
-    const familiarity = raw.familiarity && typeof raw.familiarity === "object" ? raw.familiarity : {};
+    const familiarity =
+      raw.familiarity && typeof raw.familiarity === "object" ? { ...raw.familiarity } : {};
     // migrate old weak list into familiarity 0
     try {
       const oldWeak = JSON.parse(localStorage.getItem(WEAK_KEY) || "[]");
@@ -30,18 +32,52 @@ function loadProgress() {
     } catch {
       /* ignore */
     }
-    return {
-      familiarity,
-      studyIndex: Number.isFinite(raw.studyIndex) ? raw.studyIndex : 0,
-      cycles: Number.isFinite(raw.cycles) ? raw.cycles : 0,
-    };
+    const studyIndex = Math.max(0, Math.floor(Number(raw.studyIndex) || 0));
+    const cycles = Math.max(0, Math.floor(Number(raw.cycles) || 0));
+    const updatedAt = Number(raw.updatedAt) || 0;
+    return { familiarity, studyIndex, cycles, updatedAt };
   } catch {
-    return { familiarity: {}, studyIndex: 0, cycles: 0 };
+    return empty;
   }
 }
 
-function saveProgress(progress) {
-  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+function saveProgress(p) {
+  progress = {
+    familiarity: { ...(p.familiarity || {}) },
+    studyIndex: Math.max(0, Math.floor(Number(p.studyIndex) || 0)),
+    cycles: Math.max(0, Math.floor(Number(p.cycles) || 0)),
+    updatedAt: Date.now(),
+  };
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    // 同步一份备用，避免个别浏览器清理主 key
+    localStorage.setItem(PROGRESS_KEY + "-bak", JSON.stringify(progress));
+  } catch (err) {
+    console.warn("saveProgress failed", err);
+    alert("進度無法保存：瀏覽器可能禁止了本地存儲（無痕模式？）。\nProgress could not be saved.");
+  }
+  return progress;
+}
+
+function syncProgressFromStorage() {
+  let loaded = loadProgress();
+  if (!loaded.updatedAt && !loaded.studyIndex) {
+    try {
+      const bak = JSON.parse(localStorage.getItem(PROGRESS_KEY + "-bak") || "null");
+      if (bak && (bak.studyIndex || bak.updatedAt || (bak.familiarity && Object.keys(bak.familiarity).length))) {
+        loaded = {
+          familiarity: bak.familiarity || {},
+          studyIndex: Math.max(0, Math.floor(Number(bak.studyIndex) || 0)),
+          cycles: Math.max(0, Math.floor(Number(bak.cycles) || 0)),
+          updatedAt: Number(bak.updatedAt) || 0,
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  progress = loaded;
+  return progress;
 }
 
 function famOf(progress, id) {
@@ -181,14 +217,38 @@ function progressStats(progress) {
   return { unseen, learning, known, weak, studied, total: ids.length };
 }
 
-let progress = loadProgress();
+let progress = syncProgressFromStorage();
+
+function loadPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem("perfekt-prefs-v1") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function savePrefs() {
+  try {
+    localStorage.setItem(
+      "perfekt-prefs-v1",
+      JSON.stringify({
+        sampling: state.sampling,
+        difficulty: state.difficulty,
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+const prefs = loadPrefs();
 
 /** @type {any} */
 let state = {
   screen: "menu",
   mode: "aux",
-  difficulty: "easy",
-  sampling: "study",
+  difficulty: prefs.difficulty === "hard" ? "hard" : "easy",
+  sampling: ["study", "smart", "weak"].includes(prefs.sampling) ? prefs.sampling : "study",
   seed: Date.now() % 1e9,
   items: [],
   answers: {},
@@ -197,6 +257,7 @@ let state = {
 };
 
 function start(mode) {
+  syncProgressFromStorage();
   const seed = (state.seed + 17) >>> 0;
   const queue = buildQueue(mode, state.sampling, progress, seed);
   const items = queue.map((id, i) => {
@@ -325,10 +386,20 @@ function submit() {
 
 function resetProgress() {
   if (!confirm("確定要清空熟悉度與背誦進度嗎？")) return;
-  progress = { familiarity: {}, studyIndex: 0, cycles: 0 };
+  progress = { familiarity: {}, studyIndex: 0, cycles: 0, updatedAt: Date.now() };
   saveProgress(progress);
   localStorage.removeItem(WEAK_KEY);
+  localStorage.removeItem(PROGRESS_KEY + "-bak");
   render();
+}
+
+function formatSavedAt(ts) {
+  if (!ts) return "尚未保存過進度";
+  try {
+    return new Date(ts).toLocaleString();
+  } catch {
+    return "已保存";
+  }
 }
 
 function esc(s) {
@@ -367,15 +438,19 @@ function famLabel(id) {
 }
 
 function renderMenu() {
+  syncProgressFromStorage();
   const stats = progressStats(progress);
-  const pct = Math.round((stats.known / Math.max(1, stats.total)) * 100);
-  const studyFrom = (progress.studyIndex % stats.total) + 1;
-  const studyTo = Math.min(studyFrom + BATCH - 1, stats.total);
+  const total = Math.max(1, stats.total);
+  const studyDone = Math.min(progress.studyIndex, total);
+  const studyPct = Math.round((studyDone / total) * 100);
+  const masterPct = Math.round((stats.known / total) * 100);
+  const studyFrom = (progress.studyIndex % total) + 1;
+  const studyTo = Math.min(studyFrom + BATCH - 1, total);
   const samplingMeta = SAMPLING.find((s) => s.id === state.sampling);
 
   return `
     <h1>Perfekt 動詞速背</h1>
-    <p class="sub">先用背誦進度刷完詞表，再用智能混合加強不熟的詞。<span style="opacity:.7">（版本 v6）</span></p>
+    <p class="sub">先用背誦進度刷完詞表，再用智能混合加強不熟的詞。<span style="opacity:.7">（版本 v7）</span></p>
     <div class="stats">
       <div class="stat"><b>${stats.unseen}</b><span>未熟悉</span></div>
       <div class="stat"><b>${stats.learning}</b><span>練習中</span></div>
@@ -383,11 +458,14 @@ function renderMenu() {
     </div>
     <div class="progress-wrap">
       <div class="progress-top">
-        <span>掌握度 ${pct}%</span>
-        <span>背誦進度 ${studyFrom}–${Math.min(studyTo, stats.total)} / ${stats.total}</span>
+        <span>背誦進度 ${studyPct}%</span>
+        <span>下一卷：第 ${studyFrom}–${Math.min(studyTo, total)} 詞 / 共 ${total}</span>
       </div>
-      <div class="progress-bar"><i style="width:${pct}%"></i></div>
-      <div class="progress-note">已完成整表 ${progress.cycles} 輪 · 弱項約 ${stats.weak} 個</div>
+      <div class="progress-bar"><i style="width:${studyPct}%"></i></div>
+      <div class="progress-note">
+        已背到第 <strong>${studyDone}</strong> 個詞 · 整表完成 ${progress.cycles} 輪 · 掌握度 ${masterPct}%（熟悉≥4）· 弱項約 ${stats.weak}
+      </div>
+      <div class="progress-note">本地記憶：${esc(formatSavedAt(progress.updatedAt))}（同一手機同一網址會記住）</div>
     </div>
 
     <div class="label-row">抽題方式</div>
@@ -416,7 +494,8 @@ function renderMenu() {
       ).join("")}
     </div>
     <div class="hint">
-      建議：背誦進度 + hat/ist／分詞 → 背誦進度 + 例句 → 智能混合 + 例句。答對熟悉度 +1，答錯 -1；智能混合會讓低分詞更常出現。
+      建議：背誦進度 + hat/ist／分詞 → 背誦進度 + 例句 → 智能混合。每卷點「提交驗證」後才會保存進度。
+      若清除瀏覽器網站數據，進度會消失。請固定用同一個網址打開。
       <div class="install">
         <button type="button" class="linkish" data-reset>重置進度</button>
          · 手機可「加入主畫面」
@@ -550,9 +629,12 @@ function renderResult() {
   const g = state.graded;
   const pct = Math.round((g.right / Math.max(1, g.right + g.wrong)) * 100);
   const stats = progressStats(progress);
+  const studyDone = Math.min(progress.studyIndex, stats.total);
   const wrapNote = state.studyWrapped
     ? `<p class="sub" style="margin:8px 0 0">太棒了：背誦模式已刷完整表一輪（累計 ${progress.cycles} 輪）。下一卷會從頭再來，也可改用智能混合。</p>`
-    : "";
+    : state.sampling === "study"
+      ? `<p class="sub" style="margin:8px 0 0">進度已保存：已背到第 ${studyDone} / ${stats.total} 詞。下次打開會從這裡繼續。</p>`
+      : `<p class="sub" style="margin:8px 0 0">熟悉度已保存。切換「背誦進度」可按詞表順序往下背。</p>`;
   return `
     <div class="result-banner">
       <h2>本卷結果：${g.right} / ${g.right + g.wrong}</h2>
@@ -580,11 +662,13 @@ document.getElementById("app").addEventListener("click", (e) => {
 
   if (t.dataset.diff) {
     state.difficulty = t.dataset.diff;
+    savePrefs();
     render();
     return;
   }
   if (t.dataset.sampling) {
     state.sampling = t.dataset.sampling;
+    savePrefs();
     render();
     return;
   }
