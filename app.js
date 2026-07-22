@@ -76,8 +76,7 @@ function syncProgressFromStorage() {
       /* ignore */
     }
   }
-  progress = loaded;
-  return progress;
+  return loaded;
 }
 
 function famOf(progress, id) {
@@ -450,7 +449,7 @@ function renderMenu() {
 
   return `
     <h1>Perfekt 動詞速背</h1>
-    <p class="sub">先用背誦進度刷完詞表，再用智能混合加強不熟的詞。<span style="opacity:.7">（版本 v9）</span></p>
+    <p class="sub">先用背誦進度刷完詞表，再用智能混合加強不熟的詞。<span style="opacity:.7">（版本 v10）</span></p>
     <div class="stats">
       <div class="stat"><b>${stats.unseen}</b><span>未熟悉</span></div>
       <div class="stat"><b>${stats.learning}</b><span>練習中</span></div>
