@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a2332" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Perfekt" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Perfekt 動詞速背</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --bg-2: #e8e1d4;
+      --ink: #1a2332;
+      --muted: #5c6674;
+      --line: #cfc6b6;
+      --card: #fffdf8;
+      --accent: #0f6e6a;
+      --accent-soft: #d7ecea;
+      --ok: #1f6b3a;
+      --ok-bg: #e4f3e8;
+      --bad: #9b2c2c;
+      --bad-bg: #f8e6e6;
+      --warn: #8a5a12;
+      --radius: 16px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --font: "DM Sans", system-ui, sans-serif;
+      --display: "Fraunces", Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+    html {
+      font-size: 20px; /* 手機基準放大兩號：16→20 */
+    }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #dde8e4 0%, transparent 55%),
+        radial-gradient(900px 400px at 100% 0%, #efe4d2 0%, transparent 50%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--font);
+      line-height: 1.45;
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 22px 18px calc(140px + var(--safe-bottom));
+    }
+
+    h1 {
+      font-family: var(--display);
+      font-size: 2rem;
+      line-height: 1.2;
+      margin: 0 0 10px;
+      letter-spacing: -0.02em;
+    }
+    .sub { color: var(--muted); font-size: 1.05rem; margin: 0 0 20px; line-height: 1.5; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .stat b { display: block; font-size: 1.35rem; }
+    .stat span { color: var(--muted); font-size: 0.85rem; }
+
+    .seg {
+      display: flex;
+      gap: 6px;
+      background: var(--bg-2);
+      padding: 5px;
+      border-radius: 999px;
+      margin-bottom: 16px;
+    }
+    .seg button {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 14px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      min-height: 52px;
+    }
+    .seg button.on {
+      background: var(--card);
+      color: var(--ink);
+    }
+
+    .modes { display: grid; gap: 12px; }
+    .mode {
+      text-align: left;
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 18px 16px;
+      cursor: pointer;
+      font: inherit;
+      color: inherit;
+      min-height: 72px;
+    }
+    .mode strong { display: block; font-size: 1.15rem; margin-bottom: 6px; }
+    .mode p { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.45; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .q {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .q.ok { border-color: #8fc49f; background: var(--ok-bg); }
+    .q.bad { border-color: #e0a0a0; background: var(--bad-bg); }
+    .q-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .q-num { color: var(--muted); font-size: 0.95rem; font-weight: 600; }
+    .q-inf {
+      font-family: var(--display);
+      font-size: 1.45rem;
+      font-weight: 700;
+    }
+    .q-zh {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 1.05rem;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+    .label {
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin: 14px 0 8px;
+    }
+    .choices { display: flex; flex-wrap: wrap; gap: 10px; }
+    .choice, .aux-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font: inherit;
+      font-size: 1.1rem;
+      cursor: pointer;
+      min-height: 52px;
+    }
+    .choice.on, .aux-btn.on {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .choice:disabled, .aux-btn:disabled, input:disabled { opacity: 0.85; cursor: default; }
+
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 14px;
+      font: inherit;
+      font-size: 1.15rem;
+      background: #fff;
+      color: var(--ink);
+      min-height: 56px;
+    }
+    input:focus, .choice:focus-visible, .aux-btn:focus-visible, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    .answer-key {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--line);
+      font-size: 1.05rem;
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .answer-key .mark { font-weight: 700; }
+    .mark.ok { color: var(--ok); }
+    .mark.bad { color: var(--bad); }
+
+    .dock {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      padding: 14px 16px calc(14px + var(--safe-bottom));
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--line);
+    }
+    .dock-inner {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      flex: 1;
+      border: 0;
+      border-radius: 14px;
+      padding: 16px 14px;
+      font: inherit;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      min-height: 56px;
+    }
+    .btn.primary { background: var(--accent); color: #fff; }
+    .btn.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .result-banner {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .result-banner h2 {
+      font-family: var(--display);
+      margin: 0 0 8px;
+      font-size: 1.55rem;
+    }
+
+    .hint {
+      background: #efe8db;
+      border-radius: 14px;
+      padding: 16px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.5;
+      margin-top: 18px;
+    }
+    .install {
+      margin-top: 12px;
+      font-size: 0.95rem;
+      color: var(--warn);
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app"></div>
+  <script src="verbs.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
