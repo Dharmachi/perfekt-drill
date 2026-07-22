@@ -450,7 +450,7 @@ function renderMenu() {
 
   return `
     <h1>Perfekt 動詞速背</h1>
-    <p class="sub">先用背誦進度刷完詞表，再用智能混合加強不熟的詞。<span style="opacity:.7">（版本 v7）</span></p>
+    <p class="sub">先用背誦進度刷完詞表，再用智能混合加強不熟的詞。<span style="opacity:.7">（版本 v8）</span></p>
     <div class="stats">
       <div class="stat"><b>${stats.unseen}</b><span>未熟悉</span></div>
       <div class="stat"><b>${stats.learning}</b><span>練習中</span></div>
@@ -721,31 +721,8 @@ document.getElementById("app").addEventListener("input", (e) => {
 });
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker
-    .register("./sw.js")
-    .then((reg) => {
-      reg.update().catch(() => {});
-      // 若已有等待中的新 SW，立刻启用
-      if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
-      reg.addEventListener("updatefound", () => {
-        const sw = reg.installing;
-        if (!sw) return;
-        sw.addEventListener("statechange", () => {
-          if (sw.state === "installed" && navigator.serviceWorker.controller) {
-            // 新版本装好后刷新一次页面
-            location.reload();
-          }
-        });
-      });
-    })
-    .catch(() => {});
-
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (refreshing) return;
-    refreshing = true;
-    location.reload();
-  });
+  // 只注册，不自动反复刷新（避免手机白屏死循环）
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
 
 render();
